@@ -56,6 +56,10 @@ def initialize_convex_hull(hand_model, object_model, args):
     # initialize translation and rotation
     # translation: 尺寸为 [total_batch_size, 3]，其中total_batch_size 是所有对象批次大小的总和。这个矩阵存储了每个对象的抓取位移。
     translation = torch.zeros([total_batch_size, 3], dtype=torch.float, device=device)
+    # translation[:, 0] = -0.2  # x轴位移设为-0.2米
+    # translation[:, 1] = -0.4  # y轴位移设为-0.4米
+    # translation[:, 2] = 0.2   # z轴位移设为0.2米
+    print(f"translation[0]:{translation[0]}")
     # rotation: 尺寸为 [total_batch_size, 3, 3]，用于存储每个对象抓取的旋转矩阵。
     rotation = torch.zeros([total_batch_size, 3, 3], dtype=torch.float, device=device)
 
@@ -147,42 +151,76 @@ def initialize_convex_hull(hand_model, object_model, args):
         ).squeeze(
             2
         )
+        # rotation_hand = torch.tensor(
+        #     transforms3d.euler.euler2mat(0, -np.pi / 3, 0, axes="rzxz"),
+        #     dtype=torch.float,
+        #     device=device,
+        # )
+        # rotation[i * batch_size_each : (i + 1) * batch_size_each] = (
+        #     rotation_global @ rotation_local @ rotation_hand
+        # )
+        # 创建一个沿x轴旋转180度的旋转矩阵
         rotation_hand = torch.tensor(
-            transforms3d.euler.euler2mat(0, -np.pi / 3, 0, axes="rzxz"),
+            transforms3d.euler.euler2mat(0, 0, 0, axes="sxyz"),
             dtype=torch.float,
             device=device,
         )
-        rotation[i * batch_size_each : (i + 1) * batch_size_each] = (
-            rotation_global @ rotation_local @ rotation_hand
-        )
+
+        rotation = rotation_hand.repeat(total_batch_size, 1, 1)
+
 
     # initialize joint angles
     # joint_angles_mu: hand-crafted canonicalized hand articulation
     # use truncated normal distribution to jitter the joint angles
 
+    # joint_angles_mu = torch.tensor(
+    #     [
+    #         0.1,
+    #         0,
+    #         0.6,
+    #         0,
+    #         0,
+    #         0,
+    #         0.6,
+    #         0,
+    #         -0.1,
+    #         0,
+    #         0.6,
+    #         0,
+    #         0,
+    #         -0.2,
+    #         0,
+    #         0.6,
+    #         0,
+    #         0,
+    #         1.2,
+    #         0,
+    #         -0.2,
+    #         0,
+    #     ],
+    #     dtype=torch.float,
+    #     device=device,
+    # )
+    # joint_angles_sigma = args.jitter_strength * (
+    #     hand_model.joints_upper - hand_model.joints_lower
+    # )
     joint_angles_mu = torch.tensor(
         [
-            0.1,
-            0,
-            0.6,
             0,
             0,
             0,
-            0.6,
-            0,
-            -0.1,
-            0,
-            0.6,
             0,
             0,
-            -0.2,
-            0,
-            0.6,
             0,
             0,
-            1.2,
             0,
-            -0.2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
             0,
         ],
         dtype=torch.float,

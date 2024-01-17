@@ -8,15 +8,13 @@ import os
 import sys
 
 sys.path.append(os.path.realpath("."))
-
+from utils.isaac_validator import IsaacValidator
 import argparse
-
 import numpy as np
-
 import transforms3d
 from utils.hand_model import HandModel
-from utils.isaac_validator import IsaacValidator
 from utils.object_model import ObjectModel
+from utils.leaphand_model import LEAPHandModel
 import torch
 """
 这段代码是用于在Isaac模拟器上验证抓取动作的脚本。它主要执行以下几个步骤：加载抓取数据，使用Isaac模拟器运行抓取动作，并根据模拟结果来评估抓取的有效性。以下是对代码主要部分的解释以及数据结构的尺寸和含义：
@@ -40,13 +38,13 @@ import torch
 """
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--gpu", default=3, type=int)
+    parser.add_argument("--gpu", default=0, type=int)
     parser.add_argument("--val_batch", default=500, type=int)
     parser.add_argument("--mesh_path", default="../data/meshdata", type=str)
-    parser.add_argument("--grasp_path", default="../data/graspdata", type=str)
-    parser.add_argument("--result_path", default="../data/dataset", type=str)
+    parser.add_argument("--grasp_path", default="../data/leaphand_graspdata_version1_debug01", type=str)
+    parser.add_argument("--result_path", default="../data/leaphand_graspdata_version1_debug01_result", type=str)
     parser.add_argument(
-        "--object_code", default="sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2", type=str
+        "--object_code", default="core-bottle-6d3c20adcce2dd0f79b7b9ca8006b2fe", type=str
     )
     # if index is received, then the debug mode is on
     parser.add_argument("--index", type=int)
@@ -61,28 +59,22 @@ if __name__ == "__main__":
     translation_names = ["WRJTx", "WRJTy", "WRJTz"]
     rot_names = ["WRJRx", "WRJRy", "WRJRz"]
     joint_names = [
-        "robot0:FFJ3",
-        "robot0:FFJ2",
-        "robot0:FFJ1",
-        "robot0:FFJ0",
-        "robot0:MFJ3",
-        "robot0:MFJ2",
-        "robot0:MFJ1",
-        "robot0:MFJ0",
-        "robot0:RFJ3",
-        "robot0:RFJ2",
-        "robot0:RFJ1",
-        "robot0:RFJ0",
-        "robot0:LFJ4",
-        "robot0:LFJ3",
-        "robot0:LFJ2",
-        "robot0:LFJ1",
-        "robot0:LFJ0",
-        "robot0:THJ4",
-        "robot0:THJ3",
-        "robot0:THJ2",
-        "robot0:THJ1",
-        "robot0:THJ0",
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
     ]
 
     os.environ.pop("CUDA_VISIBLE_DEVICES")
@@ -101,6 +93,7 @@ if __name__ == "__main__":
         # scale_tensor：尺寸为[1, batch_size]，保存了每个抓取对象的缩放因子。
         scale_tensor = []
         for i in range(batch_size):
+            print(f"data_dict[i]:{data_dict[i]}")
             qpos = data_dict[i]["qpos"]
             scale = data_dict[i]["scale"]
             rot = np.array(
@@ -119,13 +112,20 @@ if __name__ == "__main__":
         hand_state = torch.stack(hand_state).to(device).requires_grad_()
         scale_tensor = torch.tensor(scale_tensor).reshape(1, -1).to(device)
         # print(scale_tensor.dtype)
-        hand_model = HandModel(
-            mjcf_path="mjcf/shadow_hand_wrist_free.xml",
-            mesh_path="mjcf/meshes",
-            contact_points_path="mjcf/contact_points.json",
-            penetration_points_path="mjcf/penetration_points.json",
-            n_surface_points=2000,
-            device=device,
+        # hand_model = HandModel(
+        #     mjcf_path="mjcf/shadow_hand_wrist_free.xml",
+        #     mesh_path="mjcf/meshes",
+        #     contact_points_path="mjcf/contact_points.json",
+        #     penetration_points_path="mjcf/penetration_points.json",
+        #     n_surface_points=2000,
+        #     device=device,
+        # )
+        hand_model = LEAPHandModel(
+        urdf_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand_centered/leaphand_right.urdf",
+        # urdf_path="/home/sisyphus/Allegro/DexGraspNet/grasp_generation/leaphand/leaphand_right.urdf",
+        contact_points_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand_centered/contact_points.json",
+        n_surface_points=1000,
+        device=device,
         )
         hand_model.set_parameters(hand_state)
         # object model
@@ -201,6 +201,7 @@ if __name__ == "__main__":
     E_pen_array = []
     for i in range(batch_size):
         qpos = data_dict[i]["qpos"]
+        print(f"qpos:{qpos}")
         scale = data_dict[i]["scale"]
         rot = [qpos[name] for name in rot_names]
         rot = transforms3d.euler.euler2quat(*rot)

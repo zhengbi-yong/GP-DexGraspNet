@@ -5,7 +5,7 @@ Description: energy functions
 """
 
 import torch
-
+import json
 """
 计算接触距离能量(E_dis):
 
@@ -41,6 +41,14 @@ def cal_energy(
     # hand_model.contact_points: 尺寸为 [batch_size, n_contact, 3]。这是手模型中的接触点坐标，batch_size 是抓取的数量，n_contact 是每个抓取的接触点数，3 表示空间坐标。
     # E_dis
     batch_size, n_contact, _ = hand_model.contact_points.shape
+    def save_data_to_json(data, file_path):
+        # 将张量转换为numpy数组，然后转换为列表
+        data_list = data.detach().cpu().numpy().tolist()
+
+        # 保存为JSON文件
+        with open(file_path, 'w') as file:
+            json.dump(data_list, file)
+    save_data_to_json(hand_model.contact_points, 'debug_hand_model_contact_points.json')
     device = object_model.device
     # distance: 尺寸为 [batch_size, n_contact]。这是手部接触点与对象表面点之间的距离。
     # contact_normal: 尺寸为 [batch_size, n_contact, 3]。接触点的法线向量。

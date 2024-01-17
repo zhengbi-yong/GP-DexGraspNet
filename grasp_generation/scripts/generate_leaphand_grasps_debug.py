@@ -27,6 +27,7 @@ from utils.leaphand_model import LEAPHandModel
 from utils.object_model import ObjectModel
 from utils.optimizer import Annealing
 from utils.rot6d import robust_compute_rotation_matrix_from_ortho6d
+import plotly.graph_objects as go
 
 try:
     set_start_method("spawn")
@@ -57,12 +58,15 @@ def generate(args_list):
 
     # 初始化手模型(LEAPHandModel)和对象模型(ObjectModel)。
     hand_model = LEAPHandModel(
-        urdf_path="/home/sisyphus/DexGraspNet/grasp_generation/leaphand/leaphand_right_version1.urdf",
+        urdf_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand_centered/leaphand_right.urdf",
         # urdf_path="/home/sisyphus/Allegro/DexGraspNet/grasp_generation/leaphand/leaphand_right.urdf",
-        contact_points_path="/home/sisyphus/Allegro/DexGraspNet/grasp_generation/leaphand/contact_points.json",
+        contact_points_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand_centered/contact_points.json",
         n_surface_points=1000,
         device=device,
     )
+    # init_hand_pose_st = hand_model.hand_pose
+    # print(f"init_hand_pose_st[0]: {init_hand_pose_st[0]}")
+    # print(f"init_hand_pose_st[0].shape: {init_hand_pose_st[0].shape}")
 
     object_model = ObjectModel(
         data_root_path=args.data_root_path,
@@ -76,7 +80,8 @@ def generate(args_list):
     initialize_convex_hull(hand_model, object_model, args)
 
     hand_pose_st = hand_model.hand_pose.detach()
-
+    print(f"hand_pose_st[0]: {hand_pose_st[0]}")
+    print(f"hand_pose_st[0].shape: {hand_pose_st[0].shape}")
     optim_config = {
         "switch_possibility": args.switch_possibility,
         "starting_temperature": args.starting_temperature,
@@ -102,9 +107,20 @@ def generate(args_list):
     )
 
     energy.sum().backward(retain_graph=True)
-
+    # debug: 查看初始化状态
+    hand_st_plotly = hand_model.get_plotly_data(
+        i=0, opacity=1, color="lightblue", with_contact_points=False, visual=False
+    )
+    # print(f"hand_pose_st: {hand_pose_st}")
+    object_plotly = object_model.get_plotly_data(i=0, color="lightgreen", opacity=1)
+    fig = go.Figure(hand_st_plotly + object_plotly)
+    fig.update_layout(scene_aspectmode="data")
+    fig.write_html("init.html")
+    
+    
     for step in range(1, args.n_iter + 1):
-        print(f"step/iter:{step}/{args.n_iter}")
+        if step % 100 == 0:
+            print(f"step/iter:{step}/{args.n_iter}")
         s = optimizer.try_step()
 
         optimizer.zero_grad()
@@ -203,8 +219,8 @@ if __name__ == "__main__":
     parser.add_argument("--todo", action="store_true")
     parser.add_argument("--seed", default=1, type=int)
     parser.add_argument("--n_contact", default=4, type=int)
-    parser.add_argument("--batch_size_each", default=50, type=int)
-    parser.add_argument("--max_total_batch_size", default=1000, type=int)
+    parser.add_argument("--batch_size_each", default=100, type=int)
+    parser.add_argument("--max_total_batch_size", default=500, type=int)
     parser.add_argument("--n_iter", default=6000, type=int)
     # hyper parameters
     parser.add_argument("--switch_possibility", default=0.5, type=float)

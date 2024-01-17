@@ -35,7 +35,14 @@ class LEAPHandModel:
         self.n_dofs = len(self.chain.get_joint_parameter_names())
 
         contact_points = json.load(open(contact_points_path, "r"))
+        # def save_data_to_json(data, file_path):
+        #     # 将张量转换为numpy数组，然后转换为列表
+        #     data_list = data
 
+        #     # 保存为JSON文件
+        #     with open(file_path, 'w') as file:
+        #         json.dump(data_list, file)
+        # save_data_to_json(contact_points, 'debug_contact_points.json')
         self.mesh = {}
         areas = {}
         for link in self.robot.links:
@@ -429,6 +436,30 @@ class LEAPHandModel:
             1, 2
         ) + self.global_translation.unsqueeze(1)
         return points
+    
+    def get_contact_candidates_unchange(self):
+        points = []
+        batch_size = self.global_translation.shape[0]
+
+        for link_name in self.mesh:
+            contact_candidates = self.mesh[link_name]["contact_candidates"]
+
+            # 确保contact_candidates是二维的
+            if len(contact_candidates.shape) == 1:
+                contact_candidates = contact_candidates.unsqueeze(0)
+
+            # 扩展到批次大小
+            contact_candidates = contact_candidates.expand(batch_size, -1, 3)
+
+            points.append(contact_candidates)
+
+        # 将所有link的接触候选点合并为一个张量
+        points = torch.cat(points, dim=1)  # 注意这里的维度是1，合并在第二个维度
+        return points
+
+
+
+
 
     def get_surface_points(self):
         points = []
@@ -447,6 +478,29 @@ class LEAPHandModel:
             1, 2
         ) + self.global_translation.unsqueeze(1)
         return points
+    
+    def get_surface_points_and_save(self):
+        surface_points_dict = {}
+        batch_size = self.global_translation.shape[0]
+        
+        for link_name in self.mesh:
+            n_surface_points = self.mesh[link_name]["surface_points"].shape[0]
+            transformed_points = self.current_status[link_name].transform_points(
+                self.mesh[link_name]["surface_points"]
+            )
+
+            if 1 < batch_size != transformed_points.shape[0]:
+                transformed_points = transformed_points.expand(batch_size, n_surface_points, 3)
+
+            global_points = transformed_points @ self.global_rotation.transpose(1, 2) + self.global_translation.unsqueeze(1)
+            surface_points_dict[link_name] = global_points[0].cpu().numpy().tolist()
+
+        # 保存为 JSON 文件
+        with open('surface_points.json', 'w') as file:
+            json.dump(surface_points_dict, file)
+        return surface_points_dict
+
+        
 
     def get_plotly_data(
         self, i, opacity=0.5, color="lightblue", with_contact_points=False, visual=False

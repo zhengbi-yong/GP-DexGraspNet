@@ -44,18 +44,21 @@ joint_names = [
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--object_code", type=str, default="core")
+    parser.add_argument(
+        "--object_code", type=str, default="core-bottle-6d3c20adcce2dd0f79b7b9ca8006b2fe"
+    )
     parser.add_argument("--num", type=int, default=0)
     parser.add_argument(
         "--result_path",
         type=str,
-        default="/home/sisyphus/DexGraspNet/data/leaphand_graspdata_version1_debug02",
+        default="/home/sisyphus/GP/GP-DexGraspNet/data/leaphand_graspdata_version1_debug01/",
     )
     args = parser.parse_args()
 
     device = "cpu"
 
     # load results
+    print(f"args.num: {args.num}")
     data_dict = np.load(
         os.path.join(args.result_path, args.object_code + ".npy"), allow_pickle=True
     )[args.num]
@@ -92,15 +95,15 @@ if __name__ == "__main__":
     #     device=device,
     # )
     hand_model = LEAPHandModel(
-        urdf_path="/home/sisyphus/Allegro/DexGraspNet/grasp_generation/leaphand/leaphand_right.urdf",
-        contact_points_path="/home/sisyphus/Allegro/DexGraspNet/grasp_generation/leaphand/contact_points.json",
+        urdf_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand/leaphand_right.urdf",
+        contact_points_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand/contact_points.json",
         n_surface_points=1000,
         device=device,
     )
 
     # object model
     object_model = ObjectModel(
-        data_root_path="/home/sisyphus/DexGraspNet/data/meshdata",
+        data_root_path="/home/sisyphus/GP/GP-DexGraspNet/data/meshdata",
         batch_size_each=1,
         num_samples=2000,
         device=device,
@@ -115,13 +118,13 @@ if __name__ == "__main__":
     if "qpos_st" in data_dict:
         hand_model.set_parameters(hand_pose_st.unsqueeze(0))
         hand_st_plotly = hand_model.get_plotly_data(
-            i=0, opacity=0.5, color="lightblue", with_contact_points=False
+            i=0, opacity=0.5, color="lightblue", with_contact_points=False, visual=False
         )
     else:
         hand_st_plotly = []
     hand_model.set_parameters(hand_pose.unsqueeze(0))
     hand_en_plotly = hand_model.get_plotly_data(
-        i=0, opacity=1, color="lightblue", with_contact_points=False
+        i=0, opacity=1, color="lightblue", with_contact_points=False, visual=False
     )
     object_plotly = object_model.get_plotly_data(i=0, color="lightgreen", opacity=1)
     fig = go.Figure(hand_st_plotly + hand_en_plotly + object_plotly)
@@ -135,4 +138,5 @@ if __name__ == "__main__":
         result = f"Index {args.num}  E_fc {E_fc}  E_dis {E_dis}  E_pen {E_pen}"
         fig.add_annotation(text=result, x=0.5, y=0.1, xref="paper", yref="paper")
     fig.update_layout(scene_aspectmode="data")
+    fig.write_html("output.html")
     fig.show()
