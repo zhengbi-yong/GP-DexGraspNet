@@ -159,3 +159,28 @@ class ObjectModel:
             vertices = vertices @ pose[:3, :3].T + pose[:3, 3]
         data = go.Mesh3d(x=vertices[:, 0],y=vertices[:, 1], z=vertices[:, 2], i=mesh.faces[:, 0], j=mesh.faces[:, 1], k=mesh.faces[:, 2], color=color, opacity=opacity)
         return [data]
+    
+    def get_mesh_data(self):
+        """
+        获取所有物体的网格数据。
+
+        Returns
+        -------
+        list of dicts
+            每个字典包含一个物体的网格顶点和面。
+        """
+        mesh_data_list = []
+
+        for model_index, mesh in enumerate(self.object_mesh_list):
+            model_scale = self.object_scale_tensor[model_index, :].mean().detach().cpu().numpy()
+            vertices = mesh.vertices * model_scale
+            faces = mesh.faces
+
+            mesh_data = {
+                'vertices': vertices,
+                'faces': faces
+            }
+
+            mesh_data_list.append(mesh_data)
+
+        return mesh_data_list

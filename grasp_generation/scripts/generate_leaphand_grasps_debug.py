@@ -6,7 +6,7 @@ Description: generate grasps in large-scale, use multiple graphics cards, no log
 
 import os
 import sys
-
+import json
 # 将当前目录添加到系统路径，确保可以导入当前目录下的模块。
 sys.path.append(os.path.realpath("."))
 
@@ -21,12 +21,12 @@ import transforms3d
 from torch.multiprocessing import set_start_method
 from tqdm import tqdm
 from utils.energy import cal_energy
-from utils.hand_model import HandModel
 from utils.initializations import initialize_convex_hull
 from utils.leaphand_model import LEAPHandModel
 from utils.object_model import ObjectModel
 from utils.optimizer import Annealing
 from utils.rot6d import robust_compute_rotation_matrix_from_ortho6d
+from utils.config import get_abspath
 import plotly.graph_objects as go
 
 try:
@@ -39,8 +39,41 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 # 设置NumPy在遇到数学错误时抛出异常，而不是默认的警告。
 np.seterr(all="raise")
 
+# 获取一些需要使用的路径
+scripts_directory = get_abspath(1,__file__)
+graspgeneration_directory = get_abspath(2,__file__)
+dexgraspnet_directory = get_abspath(3,__file__)
+leaphandcentered_directory = os.path.join(graspgeneration_directory, "leaphand_centered")
+optimize_process_directory = os.path.join(graspgeneration_directory, "debug/optimize_process")
+optimize_process_json_directory = os.path.join(optimize_process_directory, "jsondata")
+optimize_process_obj_directory = os.path.join(optimize_process_directory, "objdata")
+optimize_process_obj_hand_directory = os.path.join(optimize_process_obj_directory, "hand")
+optimize_process_obj_object_directory = os.path.join(optimize_process_obj_directory, "object")
 
-# 代码的核心
+# 定义一些debug和展示优化过程的函数
+def save_mesh_as_obj(mesh_data, file_path):
+    with open(file_path, 'w') as f:
+        for v in mesh_data['vertices']:
+            f.write(f"v {v[0]} {v[1]} {v[2]}\n")
+        for face in mesh_data['faces']:
+            f.write(f"f {face[0]+1} {face[1]+1} {face[2]+1}\n")
+
+def save_contact_points_as_json(hand_model, step, save_dir):
+    # 确保保存目录存在
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # 将张量转换为numpy数组，然后转换为列表
+    contact_points = hand_model.contact_points.detach().cpu().numpy().tolist()
+
+    # 构建文件名并保存为JSON文件
+    file_name = f"contact_points_step_{step}.json"
+    file_path = os.path.join(save_dir, file_name)
+    with open(file_path, 'w') as file:
+        json.dump(contact_points, file)
+
+
+# 代码的核心，生成抓握姿势
 def generate(args_list):
     # 将传入的args_list解包到四个变量中：args（实验参数），object_code_list（要处理的对象列表），id（进程ID），gpu_list（GPU列表）。
     args, object_code_list, id, gpu_list = args_list
@@ -58,9 +91,9 @@ def generate(args_list):
 
     # 初始化手模型(LEAPHandModel)和对象模型(ObjectModel)。
     hand_model = LEAPHandModel(
-        urdf_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand_centered/leaphand_right.urdf",
+        urdf_path=f"{leaphandcentered_directory}/leaphand_right.urdf",
         # urdf_path="/home/sisyphus/Allegro/DexGraspNet/grasp_generation/leaphand/leaphand_right.urdf",
-        contact_points_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand_centered/contact_points.json",
+        contact_points_path=f"{leaphandcentered_directory}/contact_points.json",
         n_surface_points=1000,
         device=device,
     )
@@ -118,9 +151,19 @@ def generate(args_list):
     fig.write_html("init.html")
     
     
-    for step in range(1, args.n_iter + 1):
-        if step % 100 == 0:
-            print(f"step/iter:{step}/{args.n_iter}")
+    # for step in range(0, args.n_iter + 1):
+    for step in tqdm(range(0, args.n_iter + 1), desc="Generating", unit="step"):
+        # if step % 100 == 0:
+        #     print(f"step/iter:{step}/{args.n_iter}")
+        if step % 500 == 0:
+            save_contact_points_as_json(hand_model, step, optimize_process_json_directory)
+            # 获取并保存手部网格数据
+            hand_mesh_data = hand_model.get_mesh_data()
+            save_mesh_as_obj(hand_mesh_data, os.path.join(optimize_process_obj_hand_directory, f"hand_mesh_step_{step}.obj"))
+            # # 获取并保存物体网格数据
+            # object_mesh_data = object_model.get_mesh_data()
+            # save_mesh_as_obj(object_mesh_data, os.path.join(optimize_process_obj_object_directory, f"object_mesh_step_{step}.obj"))
+            
         s = optimizer.try_step()
 
         optimizer.zero_grad()
@@ -293,7 +336,7 @@ if __name__ == "__main__":
             f"batch_size_each {args.batch_size_each} should be smaller than max_total_batch_size {args.max_total_batch_size}"
         )
 
-    print(f"n_objects: {len(object_code_list)}")
+    print(f"number of objects: {len(object_code_list)}")
 
     # generate
 

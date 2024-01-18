@@ -458,7 +458,29 @@ class LEAPHandModel:
         return points
 
 
+    def get_mesh_data(self):
+        """获取整个手部的网格数据。"""
+        all_vertices = []
+        all_faces = []
+        face_offset = 0
 
+        for link_name in self.mesh:
+            link_data = self.mesh[link_name]
+            vertices = link_data["vertices"]
+            faces = link_data["faces"] + face_offset
+            face_offset += len(vertices)
+
+            all_vertices.append(vertices)
+            all_faces.append(faces)
+
+        # 合并所有链接的顶点和面
+        all_vertices = torch.cat(all_vertices, dim=0)
+        all_faces = torch.cat(all_faces, dim=0)
+
+        return {
+            'vertices': all_vertices.cpu().numpy(),
+            'faces': all_faces.cpu().numpy()
+        }
 
 
     def get_surface_points(self):
