@@ -458,20 +458,55 @@ class LEAPHandModel:
         return points
 
 
+    # def get_mesh_data(self):
+    #     """获取整个手部的网格数据。"""
+    #     all_vertices = []
+    #     all_faces = []
+    #     face_offset = 0
+
+    #     for link_name in self.mesh:
+    #         link_data = self.mesh[link_name]
+    #         vertices = link_data["vertices"]
+    #         faces = link_data["faces"] + face_offset
+    #         face_offset += len(vertices)
+
+    #         all_vertices.append(vertices)
+    #         all_faces.append(faces)
+
+    #     # 合并所有链接的顶点和面
+    #     all_vertices = torch.cat(all_vertices, dim=0)
+    #     all_faces = torch.cat(all_faces, dim=0)
+
+    #     return {
+    #         'vertices': all_vertices.cpu().numpy(),
+    #         'faces': all_faces.cpu().numpy()
+    #     }
     def get_mesh_data(self):
-        """获取整个手部的网格数据。"""
+        """获取整个手部的网格数据，包括应用变换。"""
         all_vertices = []
         all_faces = []
         face_offset = 0
 
         for link_name in self.mesh:
             link_data = self.mesh[link_name]
-            vertices = link_data["vertices"]
-            faces = link_data["faces"] + face_offset
-            face_offset += len(vertices)
 
-            all_vertices.append(vertices)
-            all_faces.append(faces)
+            # 处理visual数据
+            if "visual_vertices" in link_data and "visual_faces" in link_data:
+                v = self.current_status[link_name].transform_points(link_data["visual_vertices"])
+                v = v @ self.global_rotation.T + self.global_translation
+                f = link_data["visual_faces"] + face_offset
+                face_offset += len(v)
+                all_vertices.append(v)
+                all_faces.append(f)
+
+            # 处理collision数据
+            elif "vertices" in link_data and "faces" in link_data:
+                v = self.current_status[link_name].transform_points(link_data["vertices"])
+                v = v @ self.global_rotation.T + self.global_translation
+                f = link_data["faces"] + face_offset
+                face_offset += len(v)
+                all_vertices.append(v)
+                all_faces.append(f)
 
         # 合并所有链接的顶点和面
         all_vertices = torch.cat(all_vertices, dim=0)
@@ -481,6 +516,7 @@ class LEAPHandModel:
             'vertices': all_vertices.cpu().numpy(),
             'faces': all_faces.cpu().numpy()
         }
+
 
 
     def get_surface_points(self):
@@ -521,49 +557,126 @@ class LEAPHandModel:
         with open('surface_points.json', 'w') as file:
             json.dump(surface_points_dict, file)
         return surface_points_dict
+    
+    def get_surface_points_local_and_save(self):
+        surface_points_dict_local = {}
+        batch_size = self.global_translation.shape[0]
+        
+        for link_name in self.mesh:
+            surface_points = self.mesh[link_name]["surface_points"]
+            if surface_points.nelement() == 0:  # 检查是否有表面点
+                continue
+
+            # 变换表面点到当前状态
+            transformed_points = self.current_status[link_name].transform_points(surface_points)
+
+            # 扩展变换点以匹配批次大小
+            if transformed_points.shape[0] != batch_size:
+                transformed_points = transformed_points.expand(batch_size, -1, -1)
+
+            # 转换到局部坐标系
+            matrix = self.current_status[link_name].get_matrix()
+            transformed_points_local = (transformed_points - matrix[:, :3, 3].unsqueeze(1)) @ matrix[:, :3, :3].transpose(1, 2)
+
+            # 保存局部坐标系的点
+            local_points_list = transformed_points_local[0].cpu().numpy().tolist()
+            surface_points_dict_local[link_name] = local_points_list
+
+        # 保存为 JSON 文件
+        with open('local_surface_points.json', 'w') as file:
+            json.dump(surface_points_dict_local, file, indent=4)
+        return surface_points_dict_local
+
+
+
+
+
 
         
 
-    def get_plotly_data(
-        self, i, opacity=0.5, color="lightblue", with_contact_points=False, visual=False
-    ):
+    # def get_plotly_data(
+    #     self, i, opacity=0.5, color="lightblue", with_contact_points=False, visual=False
+    # ):
+    #     data = []
+    #     for link_name in self.mesh:
+    #         v = self.current_status[link_name].transform_points(
+    #             self.mesh[link_name]["visual_vertices" if visual else "vertices"]
+    #         )
+    #         if len(v.shape) == 3:
+    #             v = v[i]
+    #         v = v @ self.global_rotation[i].T + self.global_translation[i]
+    #         v = v.detach().cpu()
+    #         f = (
+    #             self.mesh[link_name]["visual_faces" if visual else "faces"]
+    #             .detach()
+    #             .cpu()
+    #         )
+    #         data.append(
+    #             go.Mesh3d(
+    #                 x=v[:, 0],
+    #                 y=v[:, 1],
+    #                 z=v[:, 2],
+    #                 i=f[:, 0],
+    #                 j=f[:, 1],
+    #                 k=f[:, 2],
+    #                 text=[link_name] * len(v),
+    #                 color=color,
+    #                 opacity=opacity,
+    #                 hovertemplate="%{text}",
+    #             )
+    #         )
+    #     if with_contact_points:
+    #         contact_points = self.contact_points[i].detach().cpu()
+    #         data.append(
+    #             go.Scatter3d(
+    #                 x=contact_points[:, 0],
+    #                 y=contact_points[:, 1],
+    #                 z=contact_points[:, 2],
+    #                 mode="markers",
+    #                 marker=dict(color="red", size=5),
+    #             )
+    #         )
+    #     return data
+    def get_plotly_data(self, i, opacity=0.5, color="lightblue", with_contact_points=False, visual=True, collision=True):
         data = []
-        for link_name in self.mesh:
-            v = self.current_status[link_name].transform_points(
-                self.mesh[link_name]["visual_vertices" if visual else "vertices"]
-            )
-            if len(v.shape) == 3:
-                v = v[i]
-            v = v @ self.global_rotation[i].T + self.global_translation[i]
-            v = v.detach().cpu()
-            f = (
-                self.mesh[link_name]["visual_faces" if visual else "faces"]
-                .detach()
-                .cpu()
-            )
-            data.append(
-                go.Mesh3d(
-                    x=v[:, 0],
-                    y=v[:, 1],
-                    z=v[:, 2],
-                    i=f[:, 0],
-                    j=f[:, 1],
-                    k=f[:, 2],
-                    text=[link_name] * len(v),
-                    color=color,
-                    opacity=opacity,
-                    hovertemplate="%{text}",
-                )
-            )
+
+        # 处理 visual 数据
+        if visual:
+            for link_name in self.mesh:
+                if "visual_vertices" in self.mesh[link_name] and "visual_faces" in self.mesh[link_name]:
+                    v = self.current_status[link_name].transform_points(self.mesh[link_name]["visual_vertices"])
+                    if len(v.shape) == 3:
+                        v = v[i]
+                    v = v @ self.global_rotation[i].T + self.global_translation[i]
+                    v = v.detach().cpu()
+                    f = self.mesh[link_name]["visual_faces"].detach().cpu()
+                    data.append(go.Mesh3d(
+                        x=v[:, 0], y=v[:, 1], z=v[:, 2], 
+                        i=f[:, 0], j=f[:, 1], k=f[:, 2], 
+                        text=[f"{link_name} (visual)"] * len(v), 
+                        color=color, opacity=opacity, hovertemplate="%{text}"))
+
+        # 处理 collision 数据
+        if collision:
+            for link_name in self.mesh:
+                if "vertices" in self.mesh[link_name] and "faces" in self.mesh[link_name]:
+                    v = self.current_status[link_name].transform_points(self.mesh[link_name]["vertices"])
+                    if len(v.shape) == 3:
+                        v = v[i]
+                    v = v @ self.global_rotation[i].T + self.global_translation[i]
+                    v = v.detach().cpu()
+                    f = self.mesh[link_name]["faces"].detach().cpu()
+                    data.append(go.Mesh3d(
+                        x=v[:, 0], y=v[:, 1], z=v[:, 2], 
+                        i=f[:, 0], j=f[:, 1], k=f[:, 2], 
+                        text=[f"{link_name} (collision)"] * len(v), 
+                        color=color, opacity=opacity, hovertemplate="%{text}"))
+
+        # 添加接触点
         if with_contact_points:
             contact_points = self.contact_points[i].detach().cpu()
-            data.append(
-                go.Scatter3d(
-                    x=contact_points[:, 0],
-                    y=contact_points[:, 1],
-                    z=contact_points[:, 2],
-                    mode="markers",
-                    marker=dict(color="red", size=5),
-                )
-            )
+            data.append(go.Scatter3d(
+                x=contact_points[:, 0], y=contact_points[:, 1], z=contact_points[:, 2], 
+                mode="markers", marker=dict(color="red", size=5)))
+
         return data

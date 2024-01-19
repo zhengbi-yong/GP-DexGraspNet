@@ -18,11 +18,22 @@ import torch
 import transforms3d
 import trimesh as tm
 from utils.leaphand_model import LEAPHandModel
-
+from utils.config import get_abspath
 torch.manual_seed(1)
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
-
+# 获取一些需要使用的路径
+scripts_directory = get_abspath(1,__file__)
+graspgeneration_directory = get_abspath(2,__file__)
+dexgraspnet_directory = get_abspath(3,__file__)
+leaphandcentered_directory = os.path.join(graspgeneration_directory, "leaphand_centered")
+optimize_process_directory = os.path.join(graspgeneration_directory, "debug/optimize_process")
+optimize_process_json_directory = os.path.join(optimize_process_directory, "jsondata")
+optimize_process_obj_directory = os.path.join(optimize_process_directory, "objdata")
+optimize_process_obj_hand_directory = os.path.join(optimize_process_obj_directory, "hand")
+optimize_process_obj_object_directory = os.path.join(optimize_process_obj_directory, "object")
+debug_directory = os.path.join(graspgeneration_directory, "debug")
+hand_model_directory = os.path.join(debug_directory, "handmodel")
 def save_data_to_json(data, file_path):
     # 将张量转换为numpy数组，然后转换为列表
     data_list = data.detach().cpu().numpy().tolist()
@@ -66,7 +77,7 @@ if __name__ == "__main__":
     # hand model
     hand_model = LEAPHandModel(
         urdf_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand_centered/leaphand_right.urdf",
-        contact_points_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand_centered/contact_points.json",
+        contact_points_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand_centered/local_contact_points.json",
         n_surface_points=1000,
         device=device,
     )
@@ -124,7 +135,7 @@ if __name__ == "__main__":
     surface_points = hand_model.get_surface_points()[0]
     save_data_to_json(contact_candidates, 'debug_contact_candidates.json')
     save_data_to_json(surface_points, 'debug_surface_points.json')
-    # surface_points_dict = hand_model.get_surface_points_and_save()
+    hand_model.get_surface_points_local_and_save()
     print(f"n_dofs: {hand_model.n_dofs}")
     print(f"n_contact_candidates: {len(contact_candidates)}")
     print(f"n_surface_points: {len(surface_points)}")
@@ -160,5 +171,50 @@ if __name__ == "__main__":
     # fig = go.Figure(hand_plotly + contact_candidates_plotly + surface_points_plotly)
     fig = go.Figure(hand_plotly + contact_candidates_plotly)
     fig.update_layout(scene_aspectmode="data")
-    fig.write_html("centered_model.html")
-    # fig.show()
+    fig.write_html(f"{hand_model_directory}/leaphand_centered_model.html")
+    
+    # 画一幅新的手
+    # 应用新的手部姿态
+    new_hand_pose = torch.cat(
+    [
+        torch.tensor([0, 0, 0], dtype=torch.float, device=device),
+        torch.tensor(rot.T.ravel()[:6], dtype=torch.float, device=device),
+        torch.tensor(
+            [
+                0.1, 0.3, 0, 0,  # 指关节的一些调整
+                0, 0.4, 0, 0,
+                0, 0.3, 0, 0,
+                1.4, 0, 0, 0,
+            ],
+            dtype=torch.float,
+            device=device,
+        ),
+    ],
+    dim=0,
+    )
+    hand_model.set_parameters(new_hand_pose.unsqueeze(0))
+
+    # 重新计算接触点的位置
+    contact_candidates = hand_model.get_contact_candidates()[0]  # 或 get_contact_candidates_unchange()
+
+    # 生成新的可视化数据
+    # hand_plotly = hand_model.get_plotly_data(
+    #     i=0, opacity=0.3, color="lightblue", visual=False
+    # )
+    hand_plotly = hand_model.get_plotly_data(i=0, opacity=0.3, color="lightblue", visual=True,collision=True)
+
+    # 更新接触点的可视化
+    contact_candidates_plotly = [
+        go.Scatter3d(
+            x=contact_candidates[:, 0].detach().cpu(),
+            y=contact_candidates[:, 1].detach().cpu(),
+            z=contact_candidates[:, 2].detach().cpu(),
+            mode="markers",
+            marker=dict(size=2, color="red"),
+        )
+    ]
+
+    # 保存新的可视化文件
+    fig = go.Figure(hand_plotly + contact_candidates_plotly)
+    fig.update_layout(scene_aspectmode="data")
+    fig.write_html(f"{hand_model_directory}/leaphand_centered_model_new_pose.html")

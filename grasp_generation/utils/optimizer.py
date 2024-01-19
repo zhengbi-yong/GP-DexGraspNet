@@ -84,17 +84,17 @@ class Annealing:
         self.old_current_status = self.hand_model.current_status
         self.old_contact_points = self.hand_model.contact_points
         self.old_grad_hand_pose = self.hand_model.hand_pose.grad
-        # 更新手部姿态
-        def save_data_to_json(data, file_path):
-    # 将张量转换为numpy数组，然后转换为列表
-            data_list = data.detach().cpu().numpy().tolist()
+        # # 更新手部姿态
+        # def save_data_to_json(data, file_path):
+        # # 将张量转换为numpy数组，然后转换为列表
+        #     data_list = data.detach().cpu().numpy().tolist()
 
-            # 保存为JSON文件
-            with open(file_path, 'w') as file:
-                json.dump(data_list, file)
-        save_data_to_json(self.hand_model.contact_points, 'debug_before_update_hand_model_contact_points.json')
+        #     # 保存为JSON文件
+        #     with open(file_path, 'w') as file:
+        #         json.dump(data_list, file)
+        # save_data_to_json(self.hand_model.contact_points, 'debug_before_update_hand_model_contact_points.json')
         self.hand_model.set_parameters(hand_pose, contact_point_indices)
-        save_data_to_json(self.hand_model.contact_points, 'debug_after_update_hand_model_contact_points.json')
+        # save_data_to_json(self.hand_model.contact_points, 'debug_after_update_hand_model_contact_points.json')
         self.step += 1
 
         return s

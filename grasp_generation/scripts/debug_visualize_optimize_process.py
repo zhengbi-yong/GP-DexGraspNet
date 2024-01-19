@@ -117,4 +117,4 @@ for contact_file in contact_files:
     if mesh_file in mesh_files:
         mesh_file_path = os.path.join(hand_mesh_folder, mesh_file)
         mesh_data = load_obj_data(mesh_file_path)
-        save_plot_as_html(contact_data, mesh_data, f'1visualization_step_{step}', output_folder)
+        save_plot_as_html(contact_data, mesh_data, f'visualization_step_{step}', output_folder)
