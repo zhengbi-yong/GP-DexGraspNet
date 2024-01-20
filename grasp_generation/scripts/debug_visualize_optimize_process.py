@@ -67,34 +67,99 @@ def create_plotly_scatter3d(data, marker_color='blue'):
     scatter = go.Scatter3d(x=x, y=y, z=z, mode='markers', marker=dict(color=marker_color, size=5))
     return scatter
 
+# def load_obj_data(file_path):
+#     with open(file_path, 'r') as file:
+#         lines = file.readlines()
+#         vertices = []
+#         faces = []
+#         for line in lines:
+#             if line.startswith('v '):
+#                 vertices.append(np.array(line.split()[1:], dtype=float))
+#             elif line.startswith('f'):
+#                 face = [int(face.split('/')[0]) for face in line.split()[1:]]
+#                 faces.append(np.array(face, dtype=int) - 1)  # OBJ文件的索引从1开始
+#         return np.array(vertices), np.array(faces)
 def load_obj_data(file_path):
     with open(file_path, 'r') as file:
         lines = file.readlines()
         vertices = []
         faces = []
+
         for line in lines:
             if line.startswith('v '):
-                vertices.append(np.array(line.split()[1:], dtype=float))
+                vertex_coords = line.split()[1:]
+                vertices.append(np.array(vertex_coords, dtype=float))
             elif line.startswith('f'):
-                face = [int(face.split('/')[0]) for face in line.split()[1:]]
-                faces.append(np.array(face, dtype=int) - 1)  # OBJ文件的索引从1开始
+                face_indices = line.split()[1:]
+                face = [int(index.split('/')[0]) for index in face_indices]
+                faces.append(np.array(face, dtype=int) - 1)
+
         return np.array(vertices), np.array(faces)
 
+def filter_invalid_faces(vertices, faces):
+    """筛选掉包含无效顶点索引的面。"""
+    valid_faces = []
+    for face in faces:
+        if np.all(face < len(vertices)):
+            valid_faces.append(face)
+        else:
+            print(f"Skipping invalid face: {face}")
+    return np.array(valid_faces)
+
+
+
+
+# def create_plotly_mesh3d(vertices, faces, color='lightblue', opacity=0.5):
+#     # 检查 vertices 数组的形状
+#     print("Vertices shape:", vertices.shape)
+#     if vertices.shape[1] != 3:
+#         raise ValueError("Unexpected shape of vertices array. Expected shape (N, 3)")
+
+#     x, y, z = vertices.T
+#     x, y, z = vertices.T
+#     i, j, k = faces.T
+#     mesh = go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, color=color, opacity=opacity)
+#     return mesh
 def create_plotly_mesh3d(vertices, faces, color='lightblue', opacity=0.5):
+    print(f"Creating mesh: {len(vertices)} vertices, {len(faces)} faces")
+    print("Sample vertices:", vertices[:5])  # 输出前5个顶点作为样本
+    print("Sample faces:", faces[:5])       # 输出前5个面作为样本
+
+    # 筛选掉无效的面
+    faces = filter_invalid_faces(vertices, faces)
+
     x, y, z = vertices.T
     i, j, k = faces.T
-    mesh = go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, color=color, opacity=opacity)
+
+    mesh = go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, color=color, opacity=0.5)
     return mesh
 
+# 在 save_plot_as_html 函数中也添加相应的 try...except 结构以捕获并输出异常
+
+
+
+# def save_plot_as_html(contact_data, mesh_data, file_name, output_folder):
+#     scatter_plot = create_plotly_scatter3d(contact_data)
+#     mesh_plot = create_plotly_mesh3d(*mesh_data)
+#     fig = go.Figure()
+#     fig.add_trace(scatter_plot)
+#     fig.add_trace(mesh_plot)
+#     fig.update_layout(scene_aspectmode='data')
+#     output_path = os.path.join(output_folder, file_name + '.html')
+#     fig.write_html(output_path)
 def save_plot_as_html(contact_data, mesh_data, file_name, output_folder):
-    scatter_plot = create_plotly_scatter3d(contact_data)
-    mesh_plot = create_plotly_mesh3d(*mesh_data)
-    fig = go.Figure()
-    fig.add_trace(scatter_plot)
-    fig.add_trace(mesh_plot)
-    fig.update_layout(scene_aspectmode='data')
-    output_path = os.path.join(output_folder, file_name + '.html')
-    fig.write_html(output_path)
+    try:
+        scatter_plot = create_plotly_scatter3d(contact_data)
+        mesh_plot = create_plotly_mesh3d(*mesh_data)
+        fig = go.Figure()
+        fig.add_trace(scatter_plot)
+        fig.add_trace(mesh_plot)
+        fig.update_layout(scene_aspectmode='data')
+        output_path = os.path.join(output_folder, file_name + '.html')
+        fig.write_html(output_path)
+    except Exception as e:
+        print(f"Error while saving plot for {file_name}: {e}")
+
 
 # 文件夹路径
 contact_points_folder = optimize_process_json_directory
@@ -107,6 +172,7 @@ if not os.path.exists(output_folder):
 # 获取所有JSON和OBJ文件
 contact_files = [f for f in os.listdir(contact_points_folder) if f.endswith('.json')]
 mesh_files = [f for f in os.listdir(hand_mesh_folder) if f.endswith('.obj')]
+
 # 为每个文件创建一个子图
 for contact_file in contact_files:
     contact_file_path = os.path.join(contact_points_folder, contact_file)
@@ -117,4 +183,10 @@ for contact_file in contact_files:
     if mesh_file in mesh_files:
         mesh_file_path = os.path.join(hand_mesh_folder, mesh_file)
         mesh_data = load_obj_data(mesh_file_path)
-        save_plot_as_html(contact_data, mesh_data, f'visualization_step_{step}', output_folder)
+
+        print(f"Step {step}: Loaded {len(mesh_data[0])} vertices and {len(mesh_data[1])} faces.")
+
+        if len(mesh_data[0]) == 0 or len(mesh_data[1]) == 0:
+            print(f"Warning: No vertex or face data available for step {step}.")
+        else:
+            save_plot_as_html(contact_data, mesh_data, f'visualization_step_{step}', output_folder)

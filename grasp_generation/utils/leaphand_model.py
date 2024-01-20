@@ -481,8 +481,118 @@ class LEAPHandModel:
     #         'vertices': all_vertices.cpu().numpy(),
     #         'faces': all_faces.cpu().numpy()
     #     }
+    # def get_mesh_data(self):
+    #     """获取整个手部的网格数据，包括应用变换。"""
+    #     all_vertices = []
+    #     all_faces = []
+    #     face_offset = 0
+
+    #     # 对于每个链接，处理 visual 和 collision 数据
+    #     for link_name in self.mesh:
+    #         link_data = self.mesh[link_name]
+
+    #         # 如果存在 visual 数据，则处理
+    #         if "visual_vertices" in link_data and "visual_faces" in link_data:
+    #             v = self.current_status[link_name].transform_points(link_data["visual_vertices"])
+    #             v = v @ self.global_rotation.T + self.global_translation
+    #             f = link_data["visual_faces"] + face_offset
+    #             face_offset += v.shape[0]
+    #             all_vertices.append(v)
+    #             all_faces.append(f)
+
+    #         # 如果存在 collision 数据，则处理
+    #         elif "vertices" in link_data and "faces" in link_data:
+    #             v = self.current_status[link_name].transform_points(link_data["vertices"])
+    #             v = v @ self.global_rotation.T + self.global_translation
+    #             f = link_data["faces"] + face_offset
+    #             face_offset += v.shape[0]
+    #             all_vertices.append(v)
+    #             all_faces.append(f)
+
+    #     # 合并所有链接的顶点和面
+    #     all_vertices = torch.cat(all_vertices, dim=0)
+    #     all_faces = torch.cat(all_faces, dim=0)
+
+    #     return {
+    #         'vertices': all_vertices.cpu().numpy(),
+    #         'faces': all_faces.cpu().numpy()
+    #     }
+    # def get_mesh_data(self):
+    #     """获取整个手部的网格数据，包括应用变换。"""
+    #     all_vertices = []
+    #     all_faces = []
+    #     face_offset = 0
+
+    #     for link_name in self.mesh:
+    #         link_data = self.mesh[link_name]
+
+    #         # 处理 visual 数据
+    #         if "visual_vertices" in link_data and "visual_faces" in link_data:
+    #             v = self.current_status[link_name].transform_points(link_data["visual_vertices"])
+    #             v = v @ self.global_rotation.T + self.global_translation
+    #             f = link_data["visual_faces"] + face_offset
+    #             face_offset += len(v)
+    #             all_vertices.append(v)
+    #             all_faces.append(f)
+
+    #         # 处理 collision 数据
+    #         elif "vertices" in link_data and "faces" in link_data:
+    #             v = self.current_status[link_name].transform_points(link_data["vertices"])
+    #             v = v @ self.global_rotation.T + self.global_translation
+    #             f = link_data["faces"] + face_offset
+    #             face_offset += len(v)
+    #             all_vertices.append(v)
+    #             all_faces.append(f)
+
+    #     # 合并所有链接的顶点和面
+    #     all_vertices = torch.cat(all_vertices, dim=0)
+    #     all_faces = torch.cat(all_faces, dim=0)
+
+    #     return {
+    #         'vertices': all_vertices.cpu().numpy(),
+    #         'faces': all_faces.cpu().numpy()
+    #     }
+    # def get_mesh_data(self):
+    #     """获取整个手部的网格数据，包括应用变换。"""
+    #     all_vertices = []
+    #     all_faces = []
+    #     face_offset = 0
+
+    #     batch_size = self.global_translation.shape[0]
+
+    #     for link_name in self.mesh:
+    #         link_data = self.mesh[link_name]
+
+    #         # 处理 visual 数据
+    #         if "visual_vertices" in link_data and "visual_faces" in link_data:
+    #             v = self.current_status[link_name].transform_points(link_data["visual_vertices"])
+    #             v = v.expand(batch_size, -1, -1)  # 确保与批次大小一致
+    #             v = v @ self.global_rotation.transpose(1, 2) + self.global_translation.unsqueeze(1)
+    #             f = link_data["visual_faces"] + face_offset
+    #             face_offset += v.shape[1]
+    #             all_vertices.append(v)
+    #             all_faces.append(f.expand(batch_size, -1, -1))  # 扩展面数据以匹配批次大小
+
+    #         # 处理 collision 数据
+    #         elif "vertices" in link_data and "faces" in link_data:
+    #             v = self.current_status[link_name].transform_points(link_data["vertices"])
+    #             v = v.expand(batch_size, -1, -1)  # 确保与批次大小一致
+    #             v = v @ self.global_rotation.transpose(1, 2) + self.global_translation.unsqueeze(1)
+    #             f = link_data["faces"] + face_offset
+    #             face_offset += v.shape[1]
+    #             all_vertices.append(v)
+    #             all_faces.append(f.expand(batch_size, -1, -1))  # 扩展面数据以匹配批次大小
+
+    #     # 合并所有链接的顶点和面
+    #     all_vertices = torch.cat(all_vertices, dim=1)
+    #     all_faces = torch.cat(all_faces, dim=1)
+
+    #     return {
+    #         'vertices': all_vertices.detach().cpu().numpy(),  # 使用 detach() 方法
+    #         'faces': all_faces.detach().cpu().numpy()  # 使用 detach() 方法
+    #     }
     def get_mesh_data(self):
-        """获取整个手部的网格数据，包括应用变换。"""
+        """获取整个手部的网格数据，针对第一个样本。"""
         all_vertices = []
         all_faces = []
         face_offset = 0
@@ -490,32 +600,72 @@ class LEAPHandModel:
         for link_name in self.mesh:
             link_data = self.mesh[link_name]
 
-            # 处理visual数据
+            # 处理 visual 数据
             if "visual_vertices" in link_data and "visual_faces" in link_data:
-                v = self.current_status[link_name].transform_points(link_data["visual_vertices"])
-                v = v @ self.global_rotation.T + self.global_translation
+                v = self.current_status[link_name].transform_points(link_data["visual_vertices"])[0]  # 取第一个样本
+                v = v @ self.global_rotation[0].T + self.global_translation[0]  # 应用第一个样本的旋转和平移
                 f = link_data["visual_faces"] + face_offset
-                face_offset += len(v)
+                face_offset += v.shape[0]
                 all_vertices.append(v)
                 all_faces.append(f)
 
-            # 处理collision数据
+            # 处理 collision 数据
             elif "vertices" in link_data and "faces" in link_data:
-                v = self.current_status[link_name].transform_points(link_data["vertices"])
-                v = v @ self.global_rotation.T + self.global_translation
+                v = self.current_status[link_name].transform_points(link_data["vertices"])[0]  # 取第一个样本
+                v = v @ self.global_rotation[0].T + self.global_translation[0]  # 应用第一个样本的旋转和平移
                 f = link_data["faces"] + face_offset
-                face_offset += len(v)
+                face_offset += v.shape[0]
                 all_vertices.append(v)
                 all_faces.append(f)
+
+        # 在合并之前确保所有张量都至少是二维的
+        all_vertices = [v.unsqueeze(0) if v.dim() == 1 else v for v in all_vertices]
+        all_faces = [f.unsqueeze(0) if f.dim() == 1 else f for f in all_faces]
 
         # 合并所有链接的顶点和面
         all_vertices = torch.cat(all_vertices, dim=0)
         all_faces = torch.cat(all_faces, dim=0)
 
         return {
-            'vertices': all_vertices.cpu().numpy(),
-            'faces': all_faces.cpu().numpy()
+            'vertices': all_vertices.detach().cpu().numpy(),
+            'faces': all_faces.detach().cpu().numpy()
         }
+    def get_collision_mesh_data(self):
+        """获取整个手部的网格数据（仅collision），针对第一个样本。"""
+        all_vertices = []
+        all_faces = []
+        face_offset = 0
+
+        for link_name in self.mesh:
+            link_data = self.mesh[link_name]
+
+            # 仅处理 collision 数据
+            if "vertices" in link_data and "faces" in link_data:
+                v = self.current_status[link_name].transform_points(link_data["vertices"])[0]  # 取第一个样本
+                v = v @ self.global_rotation[0].T + self.global_translation[0]  # 应用第一个样本的旋转和平移
+                f = link_data["faces"] + face_offset
+                face_offset += v.shape[0]
+                all_vertices.append(v)
+                all_faces.append(f)
+
+        # 在合并之前确保所有张量都至少是二维的
+        all_vertices = [v.unsqueeze(0) if v.dim() == 1 else v for v in all_vertices]
+        all_faces = [f.unsqueeze(0) if f.dim() == 1 else f for f in all_faces]
+
+        # 合并所有链接的顶点和面
+        all_vertices = torch.cat(all_vertices, dim=0)
+        all_faces = torch.cat(all_faces, dim=0)
+
+        return {
+            'vertices': all_vertices.detach().cpu().numpy(),
+            'faces': all_faces.detach().cpu().numpy()
+        }
+
+
+
+
+
+
 
 
 
@@ -558,34 +708,57 @@ class LEAPHandModel:
             json.dump(surface_points_dict, file)
         return surface_points_dict
     
+    # def get_surface_points_local_and_save(self):
+    #     surface_points_dict_local = {}
+    #     batch_size = self.global_translation.shape[0]
+        
+    #     for link_name in self.mesh:
+    #         surface_points = self.mesh[link_name]["surface_points"]
+    #         if surface_points.nelement() == 0:  # 检查是否有表面点
+    #             continue
+
+    #         # 变换表面点到当前状态
+    #         transformed_points = self.current_status[link_name].transform_points(surface_points)
+
+    #         # 扩展变换点以匹配批次大小
+    #         if transformed_points.shape[0] != batch_size:
+    #             transformed_points = transformed_points.expand(batch_size, -1, -1)
+
+    #         # 转换到局部坐标系
+    #         matrix = self.current_status[link_name].get_matrix()
+    #         transformed_points_local = (transformed_points - matrix[:, :3, 3].unsqueeze(1)) @ matrix[:, :3, :3].transpose(1, 2)
+
+    #         # 保存局部坐标系的点
+    #         local_points_list = transformed_points_local[0].cpu().numpy().tolist()
+    #         surface_points_dict_local[link_name] = local_points_list
+
+    #     # 保存为 JSON 文件
+    #     with open('local_surface_points.json', 'w') as file:
+    #         json.dump(surface_points_dict_local, file, indent=4)
+    #     return surface_points_dict_local
     def get_surface_points_local_and_save(self):
         surface_points_dict_local = {}
-        batch_size = self.global_translation.shape[0]
-        
+
         for link_name in self.mesh:
+            # 获取每个链接的原始局部坐标系中的表面点
             surface_points = self.mesh[link_name]["surface_points"]
-            if surface_points.nelement() == 0:  # 检查是否有表面点
+
+            # 检查是否有表面点
+            if surface_points.nelement() == 0:
                 continue
 
-            # 变换表面点到当前状态
-            transformed_points = self.current_status[link_name].transform_points(surface_points)
-
-            # 扩展变换点以匹配批次大小
-            if transformed_points.shape[0] != batch_size:
-                transformed_points = transformed_points.expand(batch_size, -1, -1)
-
-            # 转换到局部坐标系
-            matrix = self.current_status[link_name].get_matrix()
-            transformed_points_local = (transformed_points - matrix[:, :3, 3].unsqueeze(1)) @ matrix[:, :3, :3].transpose(1, 2)
-
+            # 将表面点从张量转换为列表形式
+            local_points_list = surface_points.cpu().numpy().tolist()
+            
             # 保存局部坐标系的点
-            local_points_list = transformed_points_local[0].cpu().numpy().tolist()
             surface_points_dict_local[link_name] = local_points_list
 
         # 保存为 JSON 文件
         with open('local_surface_points.json', 'w') as file:
             json.dump(surface_points_dict_local, file, indent=4)
+
         return surface_points_dict_local
+
 
 
 

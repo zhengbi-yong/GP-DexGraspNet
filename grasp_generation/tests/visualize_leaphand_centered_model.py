@@ -20,7 +20,6 @@ import trimesh as tm
 from utils.leaphand_model import LEAPHandModel
 from utils.config import get_abspath
 torch.manual_seed(1)
-
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 # 获取一些需要使用的路径
 scripts_directory = get_abspath(1,__file__)
@@ -77,7 +76,7 @@ if __name__ == "__main__":
     # hand model
     hand_model = LEAPHandModel(
         urdf_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand_centered/leaphand_right.urdf",
-        contact_points_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand_centered/local_contact_points.json",
+        contact_points_path="/home/sisyphus/GP/GP-DexGraspNet/grasp_generation/leaphand_centered/contact_points.json",
         n_surface_points=1000,
         device=device,
     )
@@ -130,12 +129,13 @@ if __name__ == "__main__":
     hand_model.set_parameters(hand_pose.unsqueeze(0))
 
     # info
-    # contact_candidates = hand_model.get_contact_candidates()[0]
-    contact_candidates = hand_model.get_contact_candidates_unchange()[0]
+    contact_candidates = hand_model.get_contact_candidates()[0]
+    # contact_candidates = hand_model.get_contact_candidates_unchange()[0]
     surface_points = hand_model.get_surface_points()[0]
     save_data_to_json(contact_candidates, 'debug_contact_candidates.json')
     save_data_to_json(surface_points, 'debug_surface_points.json')
     hand_model.get_surface_points_local_and_save()
+    hand_model.get_surface_points_and_save()
     print(f"n_dofs: {hand_model.n_dofs}")
     print(f"n_contact_candidates: {len(contact_candidates)}")
     print(f"n_surface_points: {len(surface_points)}")

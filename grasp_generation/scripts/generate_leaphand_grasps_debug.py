@@ -36,6 +36,7 @@ except RuntimeError:
 
 # 允许重复的库存在，这在使用某些特定的库时可能需要。
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
 # 设置NumPy在遇到数学错误时抛出异常，而不是默认的警告。
 np.seterr(all="raise")
 
@@ -51,12 +52,19 @@ optimize_process_obj_hand_directory = os.path.join(optimize_process_obj_director
 optimize_process_obj_object_directory = os.path.join(optimize_process_obj_directory, "object")
 
 # 定义一些debug和展示优化过程的函数
+# def save_mesh_as_obj(mesh_data, file_path):
+#     with open(file_path, 'w') as f:
+#         for v in mesh_data['vertices']:
+#             f.write(f"v {v[0]} {v[1]} {v[2]}\n")
+#         for face in mesh_data['faces']:
+#             f.write(f"f {face[0]+1} {face[1]+1} {face[2]+1}\n")
 def save_mesh_as_obj(mesh_data, file_path):
     with open(file_path, 'w') as f:
         for v in mesh_data['vertices']:
             f.write(f"v {v[0]} {v[1]} {v[2]}\n")
         for face in mesh_data['faces']:
             f.write(f"f {face[0]+1} {face[1]+1} {face[2]+1}\n")
+
 
 def save_contact_points_as_json(hand_model, step, save_dir):
     # 确保保存目录存在
@@ -113,8 +121,8 @@ def generate(args_list):
     initialize_convex_hull(hand_model, object_model, args)
 
     hand_pose_st = hand_model.hand_pose.detach()
-    print(f"hand_pose_st[0]: {hand_pose_st[0]}")
-    print(f"hand_pose_st[0].shape: {hand_pose_st[0].shape}")
+    # print(f"hand_pose_st[0]: {hand_pose_st[0]}")
+    # print(f"hand_pose_st[0].shape: {hand_pose_st[0].shape}")
     optim_config = {
         "switch_possibility": args.switch_possibility,
         "starting_temperature": args.starting_temperature,
@@ -158,7 +166,7 @@ def generate(args_list):
         if step % 500 == 0:
             save_contact_points_as_json(hand_model, step, optimize_process_json_directory)
             # 获取并保存手部网格数据
-            hand_mesh_data = hand_model.get_mesh_data()
+            hand_mesh_data = hand_model.get_collision_mesh_data()
             save_mesh_as_obj(hand_mesh_data, os.path.join(optimize_process_obj_hand_directory, f"hand_mesh_step_{step}.obj"))
             # # 获取并保存物体网格数据
             # object_mesh_data = object_model.get_mesh_data()
@@ -262,8 +270,8 @@ if __name__ == "__main__":
     parser.add_argument("--todo", action="store_true")
     parser.add_argument("--seed", default=1, type=int)
     parser.add_argument("--n_contact", default=4, type=int)
-    parser.add_argument("--batch_size_each", default=100, type=int)
-    parser.add_argument("--max_total_batch_size", default=500, type=int)
+    parser.add_argument("--batch_size_each", default=10, type=int)
+    parser.add_argument("--max_total_batch_size", default=100, type=int)
     parser.add_argument("--n_iter", default=6000, type=int)
     # hyper parameters
     parser.add_argument("--switch_possibility", default=0.5, type=float)

@@ -11,8 +11,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--val_batch', default=500, type=int)
     parser.add_argument('--mesh_path', default="../data/meshdata", type=str)
-    parser.add_argument('--src', default="../data/leaphand_graspdata_version1_debug02", type=str)
-    parser.add_argument('--dst', default="../data/leaphand_graspdata_version1_result02", type=str)
+    parser.add_argument('--src', default="../data/leaphand_graspdata_version1_debug06", type=str)
+    parser.add_argument('--dst', default="../data/leaphand_graspdata_version1_result06", type=str)
     args = parser.parse_args()
 
     if ("CUDA_VISIBLE_DEVICES" not in os.environ.keys()):
