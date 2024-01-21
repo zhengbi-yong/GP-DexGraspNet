@@ -52,12 +52,6 @@ optimize_process_obj_hand_directory = os.path.join(optimize_process_obj_director
 optimize_process_obj_object_directory = os.path.join(optimize_process_obj_directory, "object")
 
 # 定义一些debug和展示优化过程的函数
-# def save_mesh_as_obj(mesh_data, file_path):
-#     with open(file_path, 'w') as f:
-#         for v in mesh_data['vertices']:
-#             f.write(f"v {v[0]} {v[1]} {v[2]}\n")
-#         for face in mesh_data['faces']:
-#             f.write(f"f {face[0]+1} {face[1]+1} {face[2]+1}\n")
 def save_mesh_as_obj(mesh_data, file_path):
     with open(file_path, 'w') as f:
         for v in mesh_data['vertices']:
@@ -100,14 +94,10 @@ def generate(args_list):
     # 初始化手模型(LEAPHandModel)和对象模型(ObjectModel)。
     hand_model = LEAPHandModel(
         urdf_path=f"{leaphandcentered_directory}/leaphand_right.urdf",
-        # urdf_path="/home/sisyphus/Allegro/DexGraspNet/grasp_generation/leaphand/leaphand_right.urdf",
         contact_points_path=f"{leaphandcentered_directory}/contact_points.json",
         n_surface_points=1000,
         device=device,
     )
-    # init_hand_pose_st = hand_model.hand_pose
-    # print(f"init_hand_pose_st[0]: {init_hand_pose_st[0]}")
-    # print(f"init_hand_pose_st[0].shape: {init_hand_pose_st[0].shape}")
 
     object_model = ObjectModel(
         data_root_path=args.data_root_path,
@@ -119,6 +109,15 @@ def generate(args_list):
 
     # 初始化凸包，这是为了在模拟中使用凸包代表物体。
     initialize_convex_hull(hand_model, object_model, args)
+    # debug: 查看初始化状态
+    hand_st_plotly = hand_model.get_plotly_data(
+        i=0, opacity=1, color="lightblue", with_contact_points=False, visual=False
+    )
+    # print(f"hand_pose_st: {hand_pose_st}")
+    object_plotly = object_model.get_plotly_data(i=0, color="lightgreen", opacity=1)
+    fig = go.Figure(hand_st_plotly + object_plotly)
+    fig.update_layout(scene_aspectmode="data")
+    fig.write_html("init0.html")
 
     hand_pose_st = hand_model.hand_pose.detach()
     # print(f"hand_pose_st[0]: {hand_pose_st[0]}")
@@ -161,16 +160,20 @@ def generate(args_list):
     
     # for step in range(0, args.n_iter + 1):
     for step in tqdm(range(0, args.n_iter + 1), desc="Generating", unit="step"):
-        # if step % 100 == 0:
-        #     print(f"step/iter:{step}/{args.n_iter}")
         if step % 500 == 0:
-            save_contact_points_as_json(hand_model, step, optimize_process_json_directory)
-            # 获取并保存手部网格数据
-            hand_mesh_data = hand_model.get_collision_mesh_data()
-            save_mesh_as_obj(hand_mesh_data, os.path.join(optimize_process_obj_hand_directory, f"hand_mesh_step_{step}.obj"))
-            # # 获取并保存物体网格数据
-            # object_mesh_data = object_model.get_mesh_data()
-            # save_mesh_as_obj(object_mesh_data, os.path.join(optimize_process_obj_object_directory, f"object_mesh_step_{step}.obj"))
+            # 保存手部网格数据和接触点数据，仅针对第一个物体
+            if id == 1:  # 检查是否是第一个物体
+                hand_mesh_data = hand_model.get_collision_mesh_data()
+                save_mesh_as_obj(hand_mesh_data, os.path.join(optimize_process_obj_hand_directory, f"hand_mesh_step_{step}.obj"))
+                
+                save_contact_points_as_json(hand_model, step, optimize_process_json_directory)
+
+            # 获取并保存物体网格数据
+            if id == 1:  # 仅保存第一个物体的网格数据
+                object_mesh_data = object_model.get_mesh_data()
+                for i, mesh_data in enumerate(object_mesh_data):
+                    if i == 0:  # 仅处理第一个物体
+                        save_mesh_as_obj(mesh_data, os.path.join(optimize_process_obj_object_directory, f"object_mesh_step_{step}_{i}.obj"))
             
         s = optimizer.try_step()
 

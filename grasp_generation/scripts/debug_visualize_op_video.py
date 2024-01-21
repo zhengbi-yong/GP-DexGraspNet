@@ -171,3 +171,45 @@ for contact_file in contact_files:
             print(f"Warning: No object mesh file found for step {step}.")
     else:
         print(f"Warning: No hand mesh file found for step {step}.")
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.animation as animation
+import json
+import numpy as np
+import os
+
+def load_contact_points(file_path):
+    with open(file_path, 'r') as file:
+        return json.load(file)
+
+def update_plot(num, contact_files, hand_mesh_files, object_mesh_files, ax):
+    ax.clear()
+    contact_data = load_contact_points(contact_files[num])
+    hand_mesh_data = load_obj_data(hand_mesh_files[num])
+    object_mesh_data = load_obj_data(object_mesh_files[num])
+
+    # 绘制接触点
+    for point in contact_data:
+        ax.scatter(*point, color='blue')
+
+    # 绘制手部mesh
+    # ...
+
+    # 绘制物体mesh
+    # ...
+
+# 文件夹路径和文件列表
+contact_files = sorted([os.path.join(optimize_process_json_directory, f) for f in os.listdir(optimize_process_json_directory) if f.endswith('.json')])
+hand_mesh_files = sorted([os.path.join(optimize_process_obj_hand_directory, f) for f in os.listdir(optimize_process_obj_hand_directory) if f.endswith('.obj')])
+object_mesh_files = sorted([os.path.join(optimize_process_obj_object_directory, f) for f in os.listdir(optimize_process_obj_object_directory) if f.endswith('.obj')])
+
+# 创建绘图和动画
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ani = animation.FuncAnimation(fig, update_plot, frames=len(contact_files), fargs=(contact_files, hand_mesh_files, object_mesh_files, ax), interval=200)
+
+# 保存为MP4
+ani.save('grasp_generation.mp4', writer='ffmpeg', fps=5)
+
+plt.show()

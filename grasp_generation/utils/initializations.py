@@ -215,6 +215,74 @@ import trimesh as tm
 #     )
 
 #     hand_model.set_parameters(hand_pose, contact_point_indices)
+# def initialize_convex_hull(hand_model, object_model, args):
+#     """
+#     Initialize grasp translation, rotation, joint angles, and contact point indices
+
+#     Parameters
+#     ----------
+#     hand_model: hand_model.HandModel
+#     object_model: object_model.ObjectModel
+#     args: Namespace
+#     """
+
+#     device = hand_model.device
+#     n_objects = len(object_model.object_mesh_list)
+#     batch_size_each = object_model.batch_size_each
+#     total_batch_size = n_objects * batch_size_each
+
+#     # initialize translation and rotation
+#     translation = torch.zeros([total_batch_size, 3], dtype=torch.float, device=device)
+#     translation[:, 2] = 0.2  # 设置 z 轴位移为 0.2 米
+
+#     # 创建一个恒等旋转矩阵
+#     rotation = torch.tensor(
+#         transforms3d.euler.euler2mat(0, 0, 0, axes="sxyz"),
+#         dtype=torch.float,
+#         device=device,
+#     )
+#     rotation = rotation.repeat(total_batch_size, 1, 1)
+
+#     # 初始化关节角度
+#     joint_angles_mu = torch.tensor(
+#         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+#         dtype=torch.float,
+#         device=device,
+#     )
+#     joint_angles_sigma = args.jitter_strength * (
+#         hand_model.joints_upper - hand_model.joints_lower
+#     )
+
+#     joint_angles = torch.zeros(
+#         [total_batch_size, hand_model.n_dofs], dtype=torch.float, device=device
+#     )
+#     for i in range(hand_model.n_dofs):
+#         torch.nn.init.trunc_normal_(
+#             joint_angles[:, i],
+#             joint_angles_mu[i],
+#             joint_angles_sigma[i],
+#             hand_model.joints_lower[i] - 1e-6,
+#             hand_model.joints_upper[i] + 1e-6,
+#         )
+
+#     # 根据设定的平移、旋转和关节角度初始化 hand_pose
+#     hand_pose = torch.cat(
+#         [translation, rotation.transpose(1, 2)[:, :2].reshape(-1, 6), joint_angles],
+#         dim=1,
+#     )
+#     hand_pose.requires_grad_()
+
+#     # 初始化接触点索引
+#     contact_point_indices = torch.randint(
+#         hand_model.n_contact_candidates,
+#         size=[total_batch_size, args.n_contact],
+#         device=device,
+#     )
+
+#     hand_model.set_parameters(hand_pose, contact_point_indices)
+
+# # 然后您可以调用这个函数来初始化您的手模型
+
 def initialize_convex_hull(hand_model, object_model, args):
     """
     Initialize grasp translation, rotation, joint angles, and contact point indices
@@ -234,7 +302,7 @@ def initialize_convex_hull(hand_model, object_model, args):
     # initialize translation and rotation
     translation = torch.zeros([total_batch_size, 3], dtype=torch.float, device=device)
     translation[:, 2] = 0.2  # 设置 z 轴位移为 0.2 米
-
+    
     # 创建一个恒等旋转矩阵
     rotation = torch.tensor(
         transforms3d.euler.euler2mat(0, 0, 0, axes="sxyz"),
@@ -243,27 +311,10 @@ def initialize_convex_hull(hand_model, object_model, args):
     )
     rotation = rotation.repeat(total_batch_size, 1, 1)
 
-    # 初始化关节角度
-    joint_angles_mu = torch.tensor(
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        dtype=torch.float,
-        device=device,
-    )
-    joint_angles_sigma = args.jitter_strength * (
-        hand_model.joints_upper - hand_model.joints_lower
-    )
-
+    # 初始化关节角度为零
     joint_angles = torch.zeros(
         [total_batch_size, hand_model.n_dofs], dtype=torch.float, device=device
     )
-    for i in range(hand_model.n_dofs):
-        torch.nn.init.trunc_normal_(
-            joint_angles[:, i],
-            joint_angles_mu[i],
-            joint_angles_sigma[i],
-            hand_model.joints_lower[i] - 1e-6,
-            hand_model.joints_upper[i] + 1e-6,
-        )
 
     # 根据设定的平移、旋转和关节角度初始化 hand_pose
     hand_pose = torch.cat(
@@ -272,13 +323,9 @@ def initialize_convex_hull(hand_model, object_model, args):
     )
     hand_pose.requires_grad_()
 
-    # 初始化接触点索引
-    contact_point_indices = torch.randint(
-        hand_model.n_contact_candidates,
-        size=[total_batch_size, args.n_contact],
-        device=device,
+    # 初始化接触点索引为零
+    contact_point_indices = torch.zeros(
+        [total_batch_size, args.n_contact], dtype=torch.long, device=device
     )
 
     hand_model.set_parameters(hand_pose, contact_point_indices)
-
-# 然后您可以调用这个函数来初始化您的手模型
