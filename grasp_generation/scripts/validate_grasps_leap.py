@@ -41,10 +41,10 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", default=0, type=int)
     parser.add_argument("--val_batch", default=500, type=int)
     parser.add_argument("--mesh_path", default="../data/meshdata", type=str)
-    parser.add_argument("--grasp_path", default="../data/leaphand_graspdata_version1_debug01", type=str)
-    parser.add_argument("--result_path", default="../data/leaphand_graspdata_version1_debug01_result", type=str)
+    parser.add_argument("--grasp_path", default="../data/leaphand_graspdata_version1_debug02", type=str)
+    parser.add_argument("--result_path", default="../data/leaphand_graspdata_version1_debug02_result", type=str)
     parser.add_argument(
-        "--object_code", default="core-bottle-6d3c20adcce2dd0f79b7b9ca8006b2fe", type=str
+        "--object_code", default="core-cellphone-53ce93c96d480cc4da0f54fde38627c3", type=str
     )
     # if index is received, then the debug mode is on
     parser.add_argument("--index", type=int)
@@ -53,6 +53,7 @@ if __name__ == "__main__":
     parser.add_argument("--dis_move", default=0.001, type=float)
     parser.add_argument("--grad_move", default=500, type=float)
     parser.add_argument("--penetration_threshold", default=0.001, type=float)
+    parser.add_argument("--gui", action="store_true", help="Enable GUI mode in Isaac simulator",default=True)
 
     args = parser.parse_args()
 
@@ -184,7 +185,12 @@ if __name__ == "__main__":
             hand_state[:, 9:] += hand_state.grad[:, 9:] * args.grad_move
             hand_state.grad.zero_()
 
-    sim = IsaacValidator(gpu=args.gpu)
+    # sim = IsaacValidator(gpu=args.gpu)
+    # 使用新的 GUI 参数来决定是否使用 GUI 模式
+    if args.gui:
+        sim = IsaacValidator(gpu=args.gpu, mode="gui")
+    else:
+        sim = IsaacValidator(gpu=args.gpu)
     if args.index is not None:
         sim = IsaacValidator(gpu=args.gpu, mode="gui")
 

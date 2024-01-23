@@ -551,33 +551,33 @@ class HandModel:
             )
         return data
 
-    def get_open3d_data(self, i, with_contact_points=False, pose=None):
-        if pose is not None:
-            pose = np.array(pose, dtype=np.float32)
-        data = tm.Trimesh()
-        for link_name in self.mesh:
-            v = self.current_status[link_name].transform_points(
-                self.mesh[link_name]["vertices"]
-            )
-            if len(v.shape) == 3:
-                v = v[i]
-            v = v @ self.global_rotation[i].T + self.global_translation[i]
-            v = v.detach().cpu()
-            f = self.mesh[link_name]["faces"].detach().cpu()
-            if pose is not None:
-                v = v @ pose[:3, :3].T + pose[:3, 3]
+    # def get_open3d_data(self, i, with_contact_points=False, pose=None):
+    #     if pose is not None:
+    #         pose = np.array(pose, dtype=np.float32)
+    #     data = tm.Trimesh()
+    #     for link_name in self.mesh:
+    #         v = self.current_status[link_name].transform_points(
+    #             self.mesh[link_name]["vertices"]
+    #         )
+    #         if len(v.shape) == 3:
+    #             v = v[i]
+    #         v = v @ self.global_rotation[i].T + self.global_translation[i]
+    #         v = v.detach().cpu()
+    #         f = self.mesh[link_name]["faces"].detach().cpu()
+    #         if pose is not None:
+    #             v = v @ pose[:3, :3].T + pose[:3, 3]
 
-            data += tm.Trimesh(v, f)
+    #         data += tm.Trimesh(v, f)
 
-        if with_contact_points:
-            contact_points = self.penetration_keypoints
+    #     if with_contact_points:
+    #         contact_points = self.penetration_keypoints
 
-            if pose is not None:
-                contact_points = contact_points @ pose[:3, :3].T + pose[:3, 3]
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(contact_points)
-            o3d.io.write_point_cloud("2.ply", pcd)
-            # data.append(
-            #     go.Scatter3d(x=contact_points[:, 0], y=contact_points[:, 1], z=contact_points[:, 2], mode='markers',
-            #                  marker=dict(color='red', size=5)))
-        o3d.io.write_triangle_mesh("1.ply", data.as_open3d)
+    #         if pose is not None:
+    #             contact_points = contact_points @ pose[:3, :3].T + pose[:3, 3]
+    #         pcd = o3d.geometry.PointCloud()
+    #         pcd.points = o3d.utility.Vector3dVector(contact_points)
+    #         o3d.io.write_point_cloud("2.ply", pcd)
+    #         # data.append(
+    #         #     go.Scatter3d(x=contact_points[:, 0], y=contact_points[:, 1], z=contact_points[:, 2], mode='markers',
+    #         #                  marker=dict(color='red', size=5)))
+    #     o3d.io.write_triangle_mesh("1.ply", data.as_open3d)
